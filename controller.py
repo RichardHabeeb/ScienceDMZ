@@ -74,7 +74,7 @@ class SimpleSwitch(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
+
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = msg.in_port
@@ -88,6 +88,7 @@ class SimpleSwitch(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD and ipv4_layer:
+            self.logger.info("add flow %s %s %s %s", dpid, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
             self.add_flow(datapath, msg.in_port, ipv4_layer.dst, actions)
 
         data = None

@@ -45,7 +45,7 @@ class SimpleSwitch(app_manager.RyuApp):
         #    in_port=in_port, dl_dst=haddr_to_bin(dst))
 
         match = datapath.ofproto_parser.OFPMatch(
-            in_port=in_port, nw_dst=ipv4_to_bin(dst))
+            in_port=in_port, nw_dst=dst)
 
         mod = datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
@@ -64,7 +64,7 @@ class SimpleSwitch(app_manager.RyuApp):
         eth = pkt.get_protocol(ethernet.ethernet)
         ipv4_layer = pkt.get_protocol(ipv4.ipv4)
 
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP or not ipv4_layer:
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
             return
 
@@ -87,7 +87,7 @@ class SimpleSwitch(app_manager.RyuApp):
         actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
 
         # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD:
+        if out_port != ofproto.OFPP_FLOOD and ipv4_layer:
             self.add_flow(datapath, msg.in_port, ipv4_layer.dst, actions)
 
         data = None

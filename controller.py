@@ -27,6 +27,7 @@ from ryu.lib.mac import haddr_to_bin
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
+from ryu.lib.packet import ipv4
 
 
 class SimpleSwitch(app_manager.RyuApp):
@@ -57,17 +58,19 @@ class SimpleSwitch(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
+        ipv4_layer = pkt.get_protocol(ipv4.ipv4)
 
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP or not ipv4_layer:
             # ignore lldp packet
             return
+
         dst = eth.dst
         src = eth.src
 
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, msg.in_port)
+        self.logger.info("packet in %s %s %s %s %s %s", dpid, src, dst, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = msg.in_port

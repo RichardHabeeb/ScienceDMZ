@@ -24,6 +24,7 @@ from ryu.controller.handler import MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_0
 from ryu.lib.mac import haddr_to_bin
+from ryu.lib.ip import ipv4_to_bin
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
@@ -40,8 +41,11 @@ class SimpleSwitch(app_manager.RyuApp):
     def add_flow(self, datapath, in_port, dst, actions):
         ofproto = datapath.ofproto
 
+        #match = datapath.ofproto_parser.OFPMatch(
+        #    in_port=in_port, dl_dst=haddr_to_bin(dst))
+
         match = datapath.ofproto_parser.OFPMatch(
-            in_port=in_port, dl_dst=haddr_to_bin(dst))
+            in_port=in_port, nl_dst=ipv4_to_bin(dst))
 
         mod = datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
@@ -70,7 +74,7 @@ class SimpleSwitch(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s %s %s", dpid, src, dst, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
+        self.logger.info("packet in %s %s %s %s", dpid, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = msg.in_port
@@ -84,7 +88,7 @@ class SimpleSwitch(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
-            self.add_flow(datapath, msg.in_port, dst, actions)
+            self.add_flow(datapath, msg.in_port, ipv4_layer.dst, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:

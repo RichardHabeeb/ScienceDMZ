@@ -45,7 +45,7 @@ class SimpleSwitch(app_manager.RyuApp):
         #    in_port=in_port, dl_dst=haddr_to_bin(dst))
 
         match = datapath.ofproto_parser.OFPMatch(
-            in_port=in_port, nl_dst=ipv4_to_bin(dst))
+            in_port=in_port, nw_dst=ipv4_to_bin(dst))
 
         mod = datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,

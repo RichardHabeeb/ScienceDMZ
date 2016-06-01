@@ -63,7 +63,7 @@ class SimpleSwitch(app_manager.RyuApp):
             in_port=in_port, nw_src=nw_src, tp_src=tp_src, nw_dst=nw_dst, tp_dst=tp_dst)
 
         mod = self.datapath.ofproto_parser.OFPFlowMod(
-            datapath=datapath, match=match, cookie=0,
+            datapath=self.datapath, match=match, cookie=0,
             command=ofproto.OFPFC_ADD, idle_timeout=10, hard_timeout=0,
             priority=ofproto.OFP_DEFAULT_PRIORITY,
             flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)

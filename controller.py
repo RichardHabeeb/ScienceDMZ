@@ -29,6 +29,8 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 from ryu.lib.packet import ipv4
+from ryu.lib.packet import tcp
+from ryu.lib.packet import udp
 
 
 class SimpleSwitch(app_manager.RyuApp):
@@ -38,14 +40,14 @@ class SimpleSwitch(app_manager.RyuApp):
         super(SimpleSwitch, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
 
-    def add_flow(self, datapath, in_port, dst, actions):
+    def add_flow(self, datapath, in_port, nw_src, tp_src, nw_dst, tp_dst, actions):
         ofproto = datapath.ofproto
 
         #match = datapath.ofproto_parser.OFPMatch(
         #    in_port=in_port, dl_dst=haddr_to_bin(dst))
 
         match = datapath.ofproto_parser.OFPMatch(
-            in_port=in_port, nw_dst=dst)
+            in_port=in_port, nw_src=nw_src, tp_src=tp_src, nw_dst=nw_dst, tp_dst=tp_dst)
 
         mod = datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
@@ -62,11 +64,17 @@ class SimpleSwitch(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
-        ipv4_layer = pkt.get_protocol(ipv4.ipv4)
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             # ignore lldp packet
             return
+
+
+        ipv4_layer = pkt.get_protocol(ipv4.ipv4)
+        transport_layer = pkt.get_protocol(udp.udp)
+
+        if not transport_layer:
+            transport_layer = pkt.get_protocol(tcp.tcp)
 
         dst = eth.dst
         src = eth.src
@@ -87,9 +95,9 @@ class SimpleSwitch(app_manager.RyuApp):
         actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
 
         # install a flow to avoid packet_in next time
-        if out_port != ofproto.OFPP_FLOOD and ipv4_layer:
-            self.logger.info("add flow %s %s %s %s", dpid, msg.in_port, ipv4_layer.src, ipv4_layer.dst)
-            self.add_flow(datapath, msg.in_port, ipv4_layer.dst, actions)
+        if out_port != ofproto.OFPP_FLOOD and ipv4_layer and transport_layer:
+            self.logger.info("add flow %s %s %s:%i %s:%i", dpid, msg.in_port, ipv4_layer.src, transport_layer.src_port ipv4_layer.dst, transport_layer.dst_port)
+            self.add_flow(datapath, msg.in_port, ipv4_layer.src, transport_layer.src_port ipv4_layer.dst, transport_layer.dst_port, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:

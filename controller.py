@@ -76,8 +76,8 @@ class controller(app_manager.RyuApp):
 
         self.mac_to_port[eth.src] = msg.in_port
 
-        if msg.in_port != SECURITY_DEVICE_SWITCH_PORT:
-            out_port = SECURITY_DEVICE_SWITCH_PORT
+        if msg.in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
+            out_port = controller.SECURITY_DEVICE_SWITCH_PORT
         elif eth.dst in self.mac_to_port:
             out_port = self.mac_to_port[eth.dst]
         else:

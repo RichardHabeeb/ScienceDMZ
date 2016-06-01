@@ -17,7 +17,7 @@
 An OpenFlow 1.0 L2 learning switch implementation.
 """
 
-
+import threading
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -39,28 +39,44 @@ class SimpleSwitch(app_manager.RyuApp):
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
+        self.datapath = None
+        self.get_flow_statistics()
 
-    def add_flow(self, datapath, in_port, nw_src, tp_src, nw_dst, tp_dst, actions):
-        ofproto = datapath.ofproto
 
-        #match = datapath.ofproto_parser.OFPMatch(
-        #    in_port=in_port, dl_dst=haddr_to_bin(dst))
+    def get_flow_statistics(self):
+        threading.Timer(1.0, self.get_flow_statistics).start()
 
-        match = datapath.ofproto_parser.OFPMatch(
+        if self.datapath is None:
+            return
+
+        match = datapath.ofproto_parser.OFPMatch(ofp.OFPFW_ALL, 0, 0, 0,
+                                    0, 0, 0, 0, 0, 0, 0, 0, 0)
+        stats = datapath.ofproto_parser.OFPFlowStatsRequest(self.dp, 0, match,
+                                               0xff, ofp.OFPP_NONE)
+        self.datapath.send_msg(stats)
+
+
+    def add_flow(self, in_port, nw_src, tp_src, nw_dst, tp_dst, actions):
+        ofproto = self.datapath.ofproto
+
+        match = self.datapath.ofproto_parser.OFPMatch(
             in_port=in_port, nw_src=nw_src, tp_src=tp_src, nw_dst=nw_dst, tp_dst=tp_dst)
 
-        mod = datapath.ofproto_parser.OFPFlowMod(
+        mod = self.datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath, match=match, cookie=0,
-            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=10, hard_timeout=0,
             priority=ofproto.OFP_DEFAULT_PRIORITY,
             flags=ofproto.OFPFF_SEND_FLOW_REM, actions=actions)
-        datapath.send_msg(mod)
+        self.datapath.send_msg(mod)
+
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
         msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
+        if self.datapath is None:
+            self.datapath = msg.datapath
+
+        ofproto = self.datapath.ofproto
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
@@ -79,10 +95,8 @@ class SimpleSwitch(app_manager.RyuApp):
         dst = eth.dst
         src = eth.src
 
-        dpid = datapath.id
+        dpid = self.datapath.id
         self.mac_to_port.setdefault(dpid, {})
-
-
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port[dpid][src] = msg.in_port
@@ -92,12 +106,12 @@ class SimpleSwitch(app_manager.RyuApp):
         else:
             out_port = ofproto.OFPP_FLOOD
 
-        actions = [datapath.ofproto_parser.OFPActionOutput(out_port)]
+        actions = [self.datapath.ofproto_parser.OFPActionOutput(out_port)]
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD and ipv4_layer and transport_layer:
             self.logger.info("add flow %s %s %s:%i %s:%i", dpid, msg.in_port, ipv4_layer.src, transport_layer.src_port, ipv4_layer.dst, transport_layer.dst_port)
-            self.add_flow(datapath, msg.in_port, ipv4_layer.src, transport_layer.src_port, ipv4_layer.dst, transport_layer.dst_port, actions)
+            self.add_flow(msg.in_port, ipv4_layer.src, transport_layer.src_port, ipv4_layer.dst, transport_layer.dst_port, actions)
 
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
@@ -107,6 +121,13 @@ class SimpleSwitch(app_manager.RyuApp):
             datapath=datapath, buffer_id=msg.buffer_id, in_port=msg.in_port,
             actions=actions, data=data)
         datapath.send_msg(out)
+
+
+    @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
+    def _flow_stats_handler(self, ev):
+        msg = ev.msg
+        self.logger.info("Flow stats reply")
+
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def _port_status_handler(self, ev):

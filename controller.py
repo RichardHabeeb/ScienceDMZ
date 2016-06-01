@@ -90,7 +90,7 @@ class controller(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD and ipv4_layer and transport_layer:
-            self.logger.info("add flow %s %s %s:%i -> %s:%i", dpid, msg.in_port, ipv4_layer.src,
+            self.logger.info("add flow %s %s:%i -> %s:%i", msg.in_port, ipv4_layer.src,
                              transport_layer.src_port, ipv4_layer.dst, transport_layer.dst_port)
             self.add_flow(msg.in_port, ipv4_layer.src, transport_layer.src_port,
                           ipv4_layer.dst, transport_layer.dst_port, actions)

@@ -74,14 +74,18 @@ class controller(app_manager.RyuApp):
         if not transport_layer:
             transport_layer = pkt.get_protocol(tcp.tcp)
 
-        self.mac_to_port[eth.src] = msg.in_port
-
         if msg.in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
             out_port = controller.SECURITY_DEVICE_SWITCH_PORT
+            self.logger.info("Forwarding to DPI.")
         elif eth.dst in self.mac_to_port:
+            #this could be a security concern. -RTH 6/1
+            self.mac_to_port[eth.src] = msg.in_port
             out_port = self.mac_to_port[eth.dst]
+            self.logger.info("Received from DPI.")
         else:
+            self.mac_to_port[eth.src] = msg.in_port
             out_port = ofproto.OFPP_FLOOD
+            self.logger.info("Received from DPI, flooding.")
 
         actions = [self.datapath.ofproto_parser.OFPActionOutput(out_port)]
 

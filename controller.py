@@ -49,10 +49,10 @@ class SimpleSwitch(app_manager.RyuApp):
         if self.datapath is None:
             return
 
-        match = datapath.ofproto_parser.OFPMatch(ofp.OFPFW_ALL, 0, 0, 0,
+        match = self.datapath.ofproto_parser.OFPMatch(self.datapath.ofproto.OFPFW_ALL, 0, 0, 0,
                                     0, 0, 0, 0, 0, 0, 0, 0, 0)
-        stats = datapath.ofproto_parser.OFPFlowStatsRequest(self.dp, 0, match,
-                                               0xff, ofp.OFPP_NONE)
+        stats = self.datapath.ofproto_parser.OFPFlowStatsRequest(self.datapath, 0, match,
+                                               0xff, self.datapath.ofproto.OFPP_NONE)
         self.datapath.send_msg(stats)
 
 

@@ -117,10 +117,10 @@ class SimpleSwitch(app_manager.RyuApp):
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
 
-        out = datapath.ofproto_parser.OFPPacketOut(
-            datapath=datapath, buffer_id=msg.buffer_id, in_port=msg.in_port,
+        out = self.datapath.ofproto_parser.OFPPacketOut(
+            datapath=self.datapath, buffer_id=msg.buffer_id, in_port=msg.in_port,
             actions=actions, data=data)
-        datapath.send_msg(out)
+        self.datapath.send_msg(out)
 
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)

@@ -128,21 +128,24 @@ class controller(app_manager.RyuApp):
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                    self.logger.info("Promoting flow:")
                     del self.untrusted_flows[stat.cookie]
                     self.dmz_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
                         [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst])],
                         self.datapath.ofproto.OFPFC_MODIFY))
+
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() < controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                    self.logger.info("Demoting flow:")
                     del self.dmz_flows[stat.cookie]
                     self.untrusted_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
-                        [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[controller.SECURITY_DEVICE_SWITCH_PORT])],
+                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
                         self.datapath.ofproto.OFPFC_MODIFY))
             else:
                 continue

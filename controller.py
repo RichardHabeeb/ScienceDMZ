@@ -34,11 +34,11 @@ class controller(app_manager.RyuApp):
         if self.datapath is None:
             return
 
-        #match = self.datapath.ofproto_parser.OFPMatch(self.datapath.ofproto.OFPFW_ALL, 0, 0, 0,
-        #                                              0, 0, 0, 0, 0, 0, 0, 0, 0)
-        #stats = self.datapath.ofproto_parser.OFPFlowStatsRequest(self.datapath, 0, match,
-        #                                                         0xff, self.datapath.ofproto.OFPP_NONE)
-        #self.datapath.send_msg(stats)
+        match = self.datapath.ofproto_parser.OFPMatch(self.datapath.ofproto.OFPFW_ALL, 0, 0, 0,
+                                                     0, 0, 0, 0, 0, 0, 0, 0, 0)
+        stats = self.datapath.ofproto_parser.OFPFlowStatsRequest(self.datapath, 0, match,
+                                                                0xff, self.datapath.ofproto.OFPP_NONE)
+        self.datapath.send_msg(stats)
 
     def add_flow(self, in_port, nw_src, tp_src, nw_dst, tp_dst, nw_proto, actions):
         ofp = self.datapath.ofproto
@@ -122,6 +122,10 @@ class controller(app_manager.RyuApp):
     def _flow_stats_handler(self, ev):
         msg = ev.msg
         self.logger.info("Flow stats reply")
+
+        flows = []
+        for stat in msg.body:
+            self.logger.info("size: match: %s", stat.byte_count, stat.match)
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def _error_handler(self, ev):

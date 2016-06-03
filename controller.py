@@ -3,7 +3,8 @@ An OpenFlow 1.0 Science DMZ Controller
 """
 
 import threading
-import flow
+import numpy
+from flow import flow
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -27,9 +28,10 @@ class controller(app_manager.RyuApp):
         super(controller, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.datapath = None
-        self.untrusted_flows = []
-        self.dmz_flows = []
+        self.untrusted_flows = {}
+        self.dmz_flows = {}
         self.get_flow_statistics()
+        self.next_cookie = numpy.uint64(0)
 
     def get_flow_statistics(self):
         threading.Timer(1.0, self.get_flow_statistics).start()
@@ -55,9 +57,10 @@ class controller(app_manager.RyuApp):
             nw_dst=nw_dst,
             tp_dst=int(tp_dst))
 
-        f = Flow(match)
-        self.untrusted_flows.append(f)
-        self.logger.info("add flow %i %i:%i -> %i:%i Wildcard:%s", match.in_port, match.nw_src, match.tp_src, match.nw_dst, match.tp_dst, hex(match.wildcards))
+        f = flow(match, self.next_cookie)
+        self.untrusted_flows[self.next_cookie] = f
+        while self.next_cookie in self.untrusted_flows or self.next_cookie in self.dmz_flows:
+            self.next_cookie += 1
         self.datapath.send_msg(f.get_flow_table_mod_msg(self.datapath, actions))
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -122,7 +125,20 @@ class controller(app_manager.RyuApp):
         for stat in msg.body:
             m = stat.match
             if 'nw_src' in m:
-                self.logger.info("size: %i ip: %s", stat.byte_count, m['nw_src'])
+                self.logger.info("size: %i, cookie: %i, ip: %s", stat.byte_count, stat.cookie, m['nw_src'])
+
+    @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
+    def _flow_removed_handler(self, ev):
+        msg = ev.msg
+
+        if msg.cookie in self.dmz_flows:
+            del self.dmz_flows[msg.cookie]
+            return
+
+        if msg.cookie in self.untrusted_flows:
+            del self.untrusted_flows[msg.cookie]
+            self.logger.info("Flow pruned")
+            return
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def _error_handler(self, ev):

@@ -1,9 +1,9 @@
 
 
-class Flow(object):
+class flow(object):
     RUNNING_AVERAGE_WINDOW = 1
 
-    def __init__(self, match=None):
+    def __init__(self, match=None, cookie=0):
         self.network_layer_src = None
         self.network_layer_dst = None
         self.transport_layer_src = None
@@ -11,6 +11,7 @@ class Flow(object):
         self.hardware_port = None
         self.match = match
         self.sample_timeout = 0
+        self.cookie = cookie
         if(match is not None and 'nw_src'in match and 'nw_dst' in match and 'tp_src' in match and 'tp_dst' in match and 'in_port' in match):
             self.network_layer_src = match['nw_src']
             self.network_layer_dst = match['nw_dst']
@@ -36,7 +37,7 @@ class Flow(object):
         return datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath,
             match=self.match,
-            cookie=0,
+            cookie=self.cookie,
             command=datapath.ofproto.OFPFC_ADD,
             idle_timeout=10,
             hard_timeout=800,

@@ -4,42 +4,21 @@ class flow(object):
     RUNNING_AVERAGE_WINDOW = 1
     FLOW_STATS_INTERVAL_SECS = 1
 
-    def __init__(self, match=None, cookie=0):
-        self.network_layer_src = None
-        self.network_layer_dst = None
-        self.transport_layer_src = None
-        self.transport_layer_dst = None
-        self.hardware_port = None
+    def __init__(self, match=None, cookie=0, dl_dst=None):
         self.match = match
         self.sample_timeout = 0
         self.cookie = cookie
-        if(match is not None and 'nw_src'in match and 'nw_dst' in match and 'tp_src' in match and 'tp_dst' in match and 'in_port' in match):
-            self.network_layer_src = match['nw_src']
-            self.network_layer_dst = match['nw_dst']
-            self.transport_layer_src = match['tp_src']
-            self.transport_layer_dst = match['tp_dst']
-            self.hardware_port = match['in_port']
-
         self.bit_rates = [0] * flow.RUNNING_AVERAGE_WINDOW
         self.running_rate_sum = 0
         self.total_bytes = 0
+        self.dl_dst = dl_dst
 
-    def __eq__(self, other):
-        if other is None:
-            return False
-        return \
-            self.network_layer_src == other.network_layer_src and \
-            self.network_layer_dst == other.network_layer_dst and \
-            self.tranport_layer_src == other.tranport_layer_src and \
-            self.tranport_layer_dst == other.tranport_layer_dst and \
-            self.hardware_port == other.hardware_port
-
-    def get_flow_table_mod_msg(self, datapath, actions):
+    def get_flow_table_mod_msg(self, datapath, actions, command):
         return datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath,
             match=self.match,
             cookie=self.cookie,
-            command=datapath.ofproto.OFPFC_ADD,
+            command=command,
             idle_timeout=10,
             hard_timeout=800,
             priority=datapath.ofproto.OFP_DEFAULT_PRIORITY,

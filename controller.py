@@ -23,6 +23,7 @@ from ryu.lib.packet import udp
 class controller(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     SECURITY_DEVICE_SWITCH_PORT = 3
+    THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
 
     def __init__(self, *args, **kwargs):
         super(controller, self).__init__(*args, **kwargs)
@@ -45,7 +46,7 @@ class controller(app_manager.RyuApp):
                                                                 0xff, self.datapath.ofproto.OFPP_NONE)
         self.datapath.send_msg(stats)
 
-    def add_flow(self, in_port, nw_src, tp_src, nw_dst, tp_dst, nw_proto, actions):
+    def add_flow(self, in_port, dl_dst, nw_src, tp_src, nw_dst, tp_dst, nw_proto, actions):
         ofp = self.datapath.ofproto
 
         match = self.datapath.ofproto_parser.OFPMatch(
@@ -57,11 +58,11 @@ class controller(app_manager.RyuApp):
             nw_dst=nw_dst,
             tp_dst=int(tp_dst))
 
-        f = flow(match, self.next_cookie)
+        f = flow(match, self.next_cookie, dl_dst)
         self.untrusted_flows[self.next_cookie] = f
         while self.next_cookie in self.untrusted_flows or self.next_cookie in self.dmz_flows:
             self.next_cookie += 1
-        self.datapath.send_msg(f.get_flow_table_mod_msg(self.datapath, actions))
+        self.datapath.send_msg(f.get_flow_table_mod_msg(self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -104,7 +105,7 @@ class controller(app_manager.RyuApp):
 
         # install a flow to avoid packet_in next time
         if out_port != ofp.OFPP_FLOOD and ipv4_layer and transport_layer:
-            self.add_flow(msg.in_port, ipv4_layer.src, transport_layer.src_port,
+            self.add_flow(msg.in_port, eth.dst, ipv4_layer.src, transport_layer.src_port,
                           ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)
 
         data = None
@@ -125,12 +126,26 @@ class controller(app_manager.RyuApp):
             f = None
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
+                f.update_total_bytes_transferred(stat.byte_count)
+                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                    del self.untrusted_flows[stat.cookie]
+                    self.dmz_flows[stat.cookie] = f
+                    self.datapath.send_msg(f.get_flow_table_mod_msg(
+                        self.datapath,
+                        [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst])],
+                        self.datapath.ofproto.OFPFC_MODIFY))
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]
+                f.update_total_bytes_transferred(stat.byte_count)
+                if f.get_average_rate() < controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                    del self.dmz_flows[stat.cookie]
+                    self.untrusted_flows[stat.cookie] = f
+                    self.datapath.send_msg(f.get_flow_table_mod_msg(
+                        self.datapath,
+                        [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[controller.SECURITY_DEVICE_SWITCH_PORT])],
+                        self.datapath.ofproto.OFPFC_MODIFY))
             else:
                 continue
-
-            f.update_total_bytes_transferred(stat.byte_count)
 
             if 'nw_src' in m:
                 self.logger.info("rate: %i, cookie: %i, ip: %s", f.get_average_rate(), stat.cookie, m['nw_src'])

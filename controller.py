@@ -3,6 +3,7 @@ An OpenFlow 1.0 Science DMZ Controller
 """
 
 import threading
+import flow
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import MAIN_DISPATCHER
@@ -26,6 +27,8 @@ class controller(app_manager.RyuApp):
         super(controller, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
         self.datapath = None
+        self.untrusted_flows = []
+        self.dmz_flows = []
         self.get_flow_statistics()
 
     def get_flow_statistics(self):
@@ -52,18 +55,10 @@ class controller(app_manager.RyuApp):
             nw_dst=nw_dst,
             tp_dst=int(tp_dst))
 
+        f = Flow(match)
+        self.untrusted_flows.append(f)
         self.logger.info("add flow %i %i:%i -> %i:%i Wildcard:%s", match.in_port, match.nw_src, match.tp_src, match.nw_dst, match.tp_dst, hex(match.wildcards))
-
-        self.datapath.send_msg(self.datapath.ofproto_parser.OFPFlowMod(
-            datapath=self.datapath,
-            match=match,
-            cookie=0,
-            command=ofp.OFPFC_ADD,
-            idle_timeout=10,
-            hard_timeout=800,
-            priority=ofp.OFP_DEFAULT_PRIORITY,
-            flags=ofp.OFPFF_SEND_FLOW_REM,
-            actions=actions))
+        self.datapath.send_msg(f.get_flow_table_mod_msg(self.datapath, actions))
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):

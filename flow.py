@@ -2,6 +2,7 @@
 
 class flow(object):
     RUNNING_AVERAGE_WINDOW = 1
+    FLOW_STATS_INTERVAL_SECS = 1
 
     def __init__(self, match=None, cookie=0):
         self.network_layer_src = None
@@ -19,7 +20,7 @@ class flow(object):
             self.transport_layer_dst = match['tp_dst']
             self.hardware_port = match['in_port']
 
-        self.bit_rates = [0] * Flow.RUNNING_AVERAGE_WINDOW
+        self.bit_rates = [0] * flow.RUNNING_AVERAGE_WINDOW
         self.running_rate_sum = 0
         self.total_bytes = 0
 
@@ -52,7 +53,7 @@ class flow(object):
             command=datapath.ofproto.OFPFC_DELETE)
 
     def get_average_rate(self):
-        return self.running_rate_sum / Flow.RUNNING_AVERAGE_WINDOW
+        return self.running_rate_sum / flow.RUNNING_AVERAGE_WINDOW
 
     def add_rate(self, new_rate):
         self.running_rate_sum += new_rate - self.bit_rates.pop(0)
@@ -60,6 +61,6 @@ class flow(object):
 
     def update_total_bytes_transferred(self, new_total):
         transmission_rate = 8 * \
-            (new_total - self.total_bytes) / FLOW_STATS_INTERVAL_SECS
+            (new_total - self.total_bytes) / flow.FLOW_STATS_INTERVAL_SECS
         self.total_bytes = new_total
         self.add_rate(transmission_rate)

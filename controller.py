@@ -119,13 +119,22 @@ class controller(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def _flow_stats_handler(self, ev):
         msg = ev.msg
-        self.logger.info("Flow stats reply")
-
         flows = []
         for stat in msg.body:
             m = stat.match
+            f = None
+            if stat.cookie in self.untrusted_flows:
+                f = self.untrusted_flows[stat.cookie]
+            elif stat.cookie in self.dmz_flows:
+                f = self.dmz_flows[stat.cookie]
+            else:
+                continue
+
+            f.update_total_bytes_transferred(stat.byte_count)
+
             if 'nw_src' in m:
-                self.logger.info("size: %i, cookie: %i, ip: %s", stat.byte_count, stat.cookie, m['nw_src'])
+                self.logger.info("rate: %i, cookie: %i, ip: %s", f.get_average_rate(), stat.cookie, m['nw_src'])
+
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
     def _flow_removed_handler(self, ev):
@@ -137,7 +146,6 @@ class controller(app_manager.RyuApp):
 
         if msg.cookie in self.untrusted_flows:
             del self.untrusted_flows[msg.cookie]
-            self.logger.info("Flow pruned")
             return
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)

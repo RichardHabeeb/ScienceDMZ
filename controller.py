@@ -125,7 +125,9 @@ class controller(app_manager.RyuApp):
 
         flows = []
         for stat in msg.body:
-            self.logger.info("size: match: %s", stat.byte_count, stat.match)
+            m = stat.match
+            if 'nw_src' in m:
+                self.logger.info("size: %i ip: %s", stat.byte_count, m['nw_src'])
 
     @set_ev_cls(ofp_event.EventOFPErrorMsg, MAIN_DISPATCHER)
     def _error_handler(self, ev):

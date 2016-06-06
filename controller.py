@@ -41,9 +41,9 @@ class controller(app_manager.RyuApp):
             return
 
         match = self.datapath.ofproto_parser.OFPMatch(self.datapath.ofproto.OFPFW_ALL, 0, 0, 0,
-                                                     0, 0, 0, 0, 0, 0, 0, 0, 0)
+                                                      0, 0, 0, 0, 0, 0, 0, 0, 0)
         stats = self.datapath.ofproto_parser.OFPFlowStatsRequest(self.datapath, 0, match,
-                                                                0xff, self.datapath.ofproto.OFPP_NONE)
+                                                                 0xff, self.datapath.ofproto.OFPP_NONE)
         self.datapath.send_msg(stats)
 
     def add_flow(self, in_port, dl_dst, nw_src, tp_src, nw_dst, tp_dst, nw_proto, actions):
@@ -62,7 +62,20 @@ class controller(app_manager.RyuApp):
         self.untrusted_flows[self.next_cookie] = f
         while self.next_cookie in self.untrusted_flows or self.next_cookie in self.dmz_flows:
             self.next_cookie += 1
-        self.datapath.send_msg(f.get_flow_table_mod_msg(self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
+        self.datapath.send_msg(f.get_flow_table_mod_msg(
+            self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
+
+    def learn_output_port(in_port, src_mac, dst_mac):
+        out_port = self.datapath.ofproto.OFPP_FLOOD
+        if in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
+            # This could be a security concern, if it becomes poisoned. -RTH 6/1
+            self.mac_to_port[src_mac] = in_port
+            out_port = controller.SECURITY_DEVICE_SWITCH_PORT
+            self.logger.info("Learning mac: %s, port: %i",
+                             eth.src, msg.in_port)
+        elif dst_mac in self.mac_to_port:
+            out_port = self.mac_to_port[eth.dst]
+        return out_port
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -71,14 +84,14 @@ class controller(app_manager.RyuApp):
         eth = pkt.get_protocol(ethernet.ethernet)
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            # ignore lldp packet
             return
 
         if self.datapath is None:
             self.datapath = msg.datapath
 
         if self.datapath != msg.datapath:
-            elf.logger.info("Different datapath.")
+            self.logger.info(
+                "Different datapath. WARNING: This controller isn't able to control two switches at once.")
 
         ofp = self.datapath.ofproto
         ipv4_layer = pkt.get_protocol(ipv4.ipv4)
@@ -89,13 +102,7 @@ class controller(app_manager.RyuApp):
             transport_layer = pkt.get_protocol(tcp.tcp)
             nw_proto = in_proto.IPPROTO_TCP
 
-        out_port = ofp.OFPP_FLOOD
-        if msg.in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
-            # this could be a security concern. -RTH 6/1
-            self.mac_to_port[eth.src] = msg.in_port
-            out_port = controller.SECURITY_DEVICE_SWITCH_PORT
-        elif eth.dst in self.mac_to_port:
-            out_port = self.mac_to_port[eth.dst]
+        out_port = learn_output_port(msg.in_port, eth.src, eth.dst)
 
         if out_port == msg.in_port:
             self.logger.info("Dropping reflected packet.")
@@ -103,7 +110,6 @@ class controller(app_manager.RyuApp):
 
         actions = [self.datapath.ofproto_parser.OFPActionOutput(out_port)]
 
-        # install a flow to avoid packet_in next time
         if out_port != ofp.OFPP_FLOOD and ipv4_layer and transport_layer:
             self.add_flow(msg.in_port, eth.dst, ipv4_layer.src, transport_layer.src_port,
                           ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)
@@ -123,36 +129,33 @@ class controller(app_manager.RyuApp):
         flows = []
         for stat in msg.body:
             m = stat.match
-            f = None
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Promoting flow:")
+                    self.logger.info("Promoting flow: rate=%i, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate(
+                    ), stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
                     del self.untrusted_flows[stat.cookie]
                     self.dmz_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
-                        [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst])],
+                        [self.datapath.ofproto_parser.OFPActionOutput(
+                            self.mac_to_port[f.dl_dst])],
                         self.datapath.ofproto.OFPFC_MODIFY))
 
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() < controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Demoting flow:")
+                    self.logger.info("Demoting flow: rate=%i, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate(
+                    ), stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
                     del self.dmz_flows[stat.cookie]
                     self.untrusted_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
-                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
+                        [self.datapath.ofproto_parser.OFPActionOutput(
+                            controller.SECURITY_DEVICE_SWITCH_PORT)],
                         self.datapath.ofproto.OFPFC_MODIFY))
-            else:
-                continue
-
-            if 'nw_src' in m:
-                self.logger.info("rate: %i, cookie: %i, ip: %s", f.get_average_rate(), stat.cookie, m['nw_src'])
-
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
     def _flow_removed_handler(self, ev):

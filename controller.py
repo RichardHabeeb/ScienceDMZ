@@ -65,16 +65,14 @@ class controller(app_manager.RyuApp):
         self.datapath.send_msg(f.get_flow_table_mod_msg(
             self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
 
-    def learn_output_port(in_port, src_mac, dst_mac):
+    def learn_output_port(self, in_port, src_mac, dst_mac):
         out_port = self.datapath.ofproto.OFPP_FLOOD
         if in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
             # This could be a security concern, if it becomes poisoned. -RTH 6/1
             self.mac_to_port[src_mac] = in_port
             out_port = controller.SECURITY_DEVICE_SWITCH_PORT
-            self.logger.info("Learning mac: %s, port: %i",
-                             eth.src, msg.in_port)
         elif dst_mac in self.mac_to_port:
-            out_port = self.mac_to_port[eth.dst]
+            out_port = self.mac_to_port[dst_mac]
         return out_port
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
@@ -102,7 +100,7 @@ class controller(app_manager.RyuApp):
             transport_layer = pkt.get_protocol(tcp.tcp)
             nw_proto = in_proto.IPPROTO_TCP
 
-        out_port = learn_output_port(msg.in_port, eth.src, eth.dst)
+        out_port = self.learn_output_port(msg.in_port, eth.src, eth.dst)
 
         if out_port == msg.in_port:
             self.logger.info("Dropping reflected packet.")
@@ -133,8 +131,7 @@ class controller(app_manager.RyuApp):
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Promoting flow: rate=%i, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate(
-                    ), stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
+                    self.logger.info("Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
                     del self.untrusted_flows[stat.cookie]
                     self.dmz_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
@@ -147,8 +144,7 @@ class controller(app_manager.RyuApp):
                 f = self.dmz_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() < controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Demoting flow: rate=%i, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate(
-                    ), stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
+                    self.logger.info("Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
                     del self.dmz_flows[stat.cookie]
                     self.untrusted_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(

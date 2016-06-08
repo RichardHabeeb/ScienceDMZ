@@ -23,7 +23,7 @@ from ryu.lib.packet import udp
 class controller(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     SECURITY_DEVICE_SWITCH_PORT = 3
-    THRESHOLD_BITS_PER_SEC = 50 * 1024 * 1024
+    THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
 
     def __init__(self, *args, **kwargs):
         super(controller, self).__init__(*args, **kwargs)
@@ -63,8 +63,7 @@ class controller(app_manager.RyuApp):
 
         f = flow(match, self.next_cookie, dl_dst)
 
-        if f in self.untrusted_flows.values() or f in untrusted_flows.values():
-            print "Flow already exitsts, just forwarding."
+        if f in self.untrusted_flows.values() or f in self.dmz_flows.values():
             return
 
         self.untrusted_flows[self.next_cookie] = f
@@ -143,8 +142,8 @@ class controller(app_manager.RyuApp):
         msg = ev.msg
         flows = []
 
-        self.logger.info("Packets recieved: %i, Unhandled: %i", self.packets_received, self.unhandled_packets_received)
-        self.logger.info("Port traffic: %s", self.packets_received_stats)
+        #self.logger.info("Packets recieved: %i, Unhandled: %i", self.packets_received, self.unhandled_packets_received)
+        #self.logger.info("Port traffic: %s", self.packets_received_stats)
         self.packets_received_stats = {}
         self.packets_received = 0
         self.unhandled_packets_received = 0

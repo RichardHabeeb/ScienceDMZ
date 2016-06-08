@@ -35,6 +35,7 @@ class controller(app_manager.RyuApp):
         self.next_cookie = numpy.uint64(0)
         self.packets_received = 0
         self.unhandled_packets_received = 0
+        self.packets_received_stats = {}
 
     def get_flow_statistics(self):
         threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()
@@ -82,7 +83,11 @@ class controller(app_manager.RyuApp):
         msg = ev.msg
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
+
         self.packets_received += 1
+        if msg.in_port not in self.packets_received_stats:
+            self.packets_received_stats[msg.in_port] = 0
+        self.packets_received_stats[msg.in_port] += 1
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
@@ -133,7 +138,9 @@ class controller(app_manager.RyuApp):
         msg = ev.msg
         flows = []
 
-        logger.info("Packets recieved: %i, Unhandled: %i", self.packets_received, self.unhandled_packets_received)
+        self.logger.info("Packets recieved: %i, Unhandled: %i", self.packets_received, self.unhandled_packets_received)
+        self.logger.info("Port traffic: %s", self.packets_received_stats)
+        self.packets_received_stats = {}
         self.packets_received = 0
         self.unhandled_packets_received = 0
 

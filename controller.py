@@ -23,7 +23,7 @@ from ryu.lib.packet import udp
 class controller(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     SECURITY_DEVICE_SWITCH_PORT = 3
-    THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
+    THRESHOLD_BITS_PER_SEC = 50 * 1024 * 1024
 
     def __init__(self, *args, **kwargs):
         super(controller, self).__init__(*args, **kwargs)
@@ -35,7 +35,7 @@ class controller(app_manager.RyuApp):
         self.next_cookie = numpy.uint64(0)
 
     def get_flow_statistics(self):
-        threading.Timer(1.0, self.get_flow_statistics).start()
+        threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()
 
         if self.datapath is None:
             return
@@ -127,6 +127,10 @@ class controller(app_manager.RyuApp):
         flows = []
         for stat in msg.body:
             m = stat.match
+
+            if m['in_port'] == controller.SECURITY_DEVICE_SWITCH_PORT:
+                continue
+
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)

@@ -2,7 +2,7 @@
 
 class flow(object):
     RUNNING_AVERAGE_WINDOW = 1
-    FLOW_STATS_INTERVAL_SECS = 1
+    FLOW_STATS_INTERVAL_SECS = 5
 
     def __init__(self, match=None, cookie=0, dl_dst=None):
         self.match = match

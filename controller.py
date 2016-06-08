@@ -33,6 +33,8 @@ class controller(app_manager.RyuApp):
         self.dmz_flows = {}
         self.get_flow_statistics()
         self.next_cookie = numpy.uint64(0)
+        self.packets_received = 0
+        self.unhandled_packets_received = 0
 
     def get_flow_statistics(self):
         threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()
@@ -80,6 +82,7 @@ class controller(app_manager.RyuApp):
         msg = ev.msg
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocol(ethernet.ethernet)
+        self.packets_received += 1
 
         if eth.ethertype == ether_types.ETH_TYPE_LLDP:
             return
@@ -108,9 +111,13 @@ class controller(app_manager.RyuApp):
 
         actions = [self.datapath.ofproto_parser.OFPActionOutput(out_port)]
 
-        if out_port != ofp.OFPP_FLOOD and ipv4_layer and transport_layer:
-            self.add_flow(msg.in_port, eth.dst, ipv4_layer.src, transport_layer.src_port,
-                          ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)
+        if out_port != ofp.OFPP_FLOOD:
+            if ipv4_layer and transport_layer:
+                self.add_flow(msg.in_port, eth.dst, ipv4_layer.src, transport_layer.src_port,
+                              ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)
+            else:
+                self.unhandled_packets_received += 1
+
 
         data = None
         if msg.buffer_id == ofp.OFP_NO_BUFFER:
@@ -125,6 +132,11 @@ class controller(app_manager.RyuApp):
     def _flow_stats_handler(self, ev):
         msg = ev.msg
         flows = []
+
+        logger.info("Packets recieved: %i, Unhandled: %i", self.packets_received, self.unhandled_packets_received)
+        self.packets_received = 0
+        self.unhandled_packets_received = 0
+
         for stat in msg.body:
             m = stat.match
 

@@ -62,6 +62,11 @@ class controller(app_manager.RyuApp):
             tp_dst=int(tp_dst))
 
         f = flow(match, self.next_cookie, dl_dst)
+
+        if f in self.untrusted_flows.values() or f in untrusted_flows.values():
+            print "Flow already exitsts, just forwarding."
+            return
+
         self.untrusted_flows[self.next_cookie] = f
         while self.next_cookie in self.untrusted_flows or self.next_cookie in self.dmz_flows:
             self.next_cookie += 1

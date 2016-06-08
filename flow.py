@@ -13,6 +13,9 @@ class flow(object):
         self.total_bytes = 0
         self.dl_dst = dl_dst
 
+    def __eq__(self, other):
+        return self.match['nw_src'] == other.match['nw_src'] and self.match['nw_dst'] == other.match['nw_dst'] and self.match['tp_src'] == other.match['tp_src'] and self.match['tp_dst'] == other.match['tp_dst'] and self.match['in_port'] == other.match['in_port']
+
     def get_flow_table_mod_msg(self, datapath, actions, command):
         return datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath,
@@ -28,7 +31,7 @@ class flow(object):
     def get_flow_table_remove_msg(self, datapath):
         return datapath.ofproto_parser.OFPFlowMod(
             match=self.match,
-            #cookie=self.cookie,
+            # cookie=self.cookie,
             command=datapath.ofproto.OFPFC_DELETE)
 
     def get_average_rate(self):

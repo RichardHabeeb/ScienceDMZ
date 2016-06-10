@@ -79,12 +79,12 @@ class controller(app_manager.RyuApp):
         if in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
             # This could be a security concern, if it becomes poisoned. -RTH 6/1
             self.mac_to_port[src_mac] = in_port
-            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)])
-            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)])
+            actions.append(self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT))
+            actions.append(self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT))
         elif dst_mac in self.mac_to_port:
-            actions.append([self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[dst_mac])])
+            actions.append(self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[dst_mac]))
         else:
-            actions.append([self.datapath.ofproto_parser.OFPActionOutput(self.datapath.ofproto.OFPP_FLOOD)])
+            actions.append(self.datapath.ofproto_parser.OFPActionOutput(self.datapath.ofproto.OFPP_FLOOD))
             flood = True
         return actions, flood
 

@@ -23,6 +23,7 @@ from ryu.lib.packet import udp
 class controller(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_0.OFP_VERSION]
     SECURITY_DEVICE_SWITCH_PORT = 3
+    SENSOR_DEVICE_SWITCH_PORT = 4
     THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
 
     def __init__(self, *args, **kwargs):
@@ -72,15 +73,18 @@ class controller(app_manager.RyuApp):
         self.datapath.send_msg(f.get_flow_table_mod_msg(
             self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
 
-    def learn_output_port(self, in_port, src_mac, dst_mac):
-        out_port = self.datapath.ofproto.OFPP_FLOOD
+    def learn_actions(self, in_port, src_mac, dst_mac):
+        actions = []self.datapath.ofproto.OFPP_FLOOD
         if in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
             # This could be a security concern, if it becomes poisoned. -RTH 6/1
             self.mac_to_port[src_mac] = in_port
-            out_port = controller.SECURITY_DEVICE_SWITCH_PORT
+            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)])
+            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)])
         elif dst_mac in self.mac_to_port:
-            out_port = self.mac_to_port[dst_mac]
-        return out_port
+            actions.append([self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[dst_mac])])
+        else:
+            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)])
+        return actions
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -112,13 +116,7 @@ class controller(app_manager.RyuApp):
             transport_layer = pkt.get_protocol(tcp.tcp)
             nw_proto = in_proto.IPPROTO_TCP
 
-        out_port = self.learn_output_port(msg.in_port, eth.src, eth.dst)
-
-        if out_port == msg.in_port:
-            self.logger.info("Dropping reflected packet.")
-            return
-
-        actions = [self.datapath.ofproto_parser.OFPActionOutput(out_port)]
+        actions = self.learn_actions(msg.in_port, eth.src, eth.dst)
 
         if out_port != ofp.OFPP_FLOOD:
             if ipv4_layer and transport_layer:
@@ -176,8 +174,8 @@ class controller(app_manager.RyuApp):
                     self.untrusted_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
-                        [self.datapath.ofproto_parser.OFPActionOutput(
-                            controller.SECURITY_DEVICE_SWITCH_PORT)],
+                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT),
+                        self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
                         self.datapath.ofproto.OFPFC_MODIFY))
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)

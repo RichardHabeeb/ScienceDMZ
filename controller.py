@@ -74,7 +74,8 @@ class controller(app_manager.RyuApp):
             self.datapath, actions, self.datapath.ofproto.OFPFC_ADD))
 
     def learn_actions(self, in_port, src_mac, dst_mac):
-        actions = []self.datapath.ofproto.OFPP_FLOOD
+        actions = []
+        flood = False
         if in_port != controller.SECURITY_DEVICE_SWITCH_PORT:
             # This could be a security concern, if it becomes poisoned. -RTH 6/1
             self.mac_to_port[src_mac] = in_port
@@ -83,8 +84,9 @@ class controller(app_manager.RyuApp):
         elif dst_mac in self.mac_to_port:
             actions.append([self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[dst_mac])])
         else:
-            actions.append([self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)])
-        return actions
+            actions.append([self.datapath.ofproto_parser.OFPActionOutput(self.datapath.ofproto.OFPP_FLOOD)])
+            flood = True
+        return actions, flood
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -116,9 +118,9 @@ class controller(app_manager.RyuApp):
             transport_layer = pkt.get_protocol(tcp.tcp)
             nw_proto = in_proto.IPPROTO_TCP
 
-        actions = self.learn_actions(msg.in_port, eth.src, eth.dst)
+        actions, flood = self.learn_actions(msg.in_port, eth.src, eth.dst)
 
-        if out_port != ofp.OFPP_FLOOD:
+        if not flood:
             if ipv4_layer and transport_layer:
                 self.add_flow(msg.in_port, eth.dst, ipv4_layer.src, transport_layer.src_port,
                               ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)

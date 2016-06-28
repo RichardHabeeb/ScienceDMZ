@@ -4,6 +4,7 @@ An OpenFlow 1.0 Science DMZ Controller
 
 import threading
 import numpy
+import rest_sensor
 from flow import flow
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -37,6 +38,15 @@ class controller(app_manager.RyuApp):
         self.packets_received = 0
         self.unhandled_packets_received = 0
         self.packets_received_stats = {}
+        self.sensor = rest_sensor()
+        self.sensor.register_negative_callback(self.notify_bad_flow)
+        self.sensor.register_positive_callback(self.notify_good_flow)
+
+    def notify_good_flow(self, flow_info):
+        self.logger.info("Good flow discovered.")
+
+    def notify_bad_flow(self, flow_info):
+        self.logger.info("Bad flow discovered.")
 
     def get_flow_statistics(self):
         threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()

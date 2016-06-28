@@ -1,4 +1,5 @@
 from flask import Flask, request
+import threading
 import json
 
 
@@ -8,15 +9,21 @@ class rest_sensor(object):
         self.positive_callbacks = []
         self.negative_callbacks = []
 
-        @self.app.route("/detection/positive", methods=['PUT'])
-        def positive():
-            self.handle_put(self.positive_callbacks, request)
+        def start():
+            @self.app.route("/detection/positive", methods=['PUT'])
+            def positive():
+                self.handle_put(self.positive_callbacks, request)
 
-        @self.app.route("/detection/negative", methods=['PUT'])
-        def negative():
-            self.handle_put(self.negative_callbacks, request)
+            @self.app.route("/detection/negative", methods=['PUT'])
+            def negative():
+                self.handle_put(self.negative_callbacks, request)
 
-        self.app.run(host='0.0.0.0')
+            self.app.run(host='0.0.0.0')
+
+        t = threading.Thread(target=start)
+        t.start()
+
+
 
     def register_positive_callback(self, cb):
         self.positive_callbacks.append(cb)

@@ -4,7 +4,7 @@ An OpenFlow 1.0 Science DMZ Controller
 
 import threading
 import numpy
-import rest_sensor
+from rest_sensor import rest_sensor
 from flow import flow
 from ryu.base import app_manager
 from ryu.controller import ofp_event

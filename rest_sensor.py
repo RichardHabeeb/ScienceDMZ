@@ -33,11 +33,15 @@ class rest_sensor(object):
         if req.method == 'PUT':
             print 1
             recieved_data = {}
-            received_data['nw_src'] = req.form['nw_src']
-            received_data['tp_src'] = req.form['tp_src']
-            received_data['nw_dst'] = req.form['nw_dst']
-            received_data['tp_dst'] = req.form['tp_dst']
             print 2
+            received_data['nw_src'] = req.form['nw_src']
+            print 3
+            received_data['tp_src'] = req.form['tp_src']
+            print 4
+            received_data['nw_dst'] = req.form['nw_dst']
+            print 5
+            received_data['tp_dst'] = req.form['tp_dst']
+            print 6
             for callback in lst:
-                print 3
+                print 7
                 callback(received_data)

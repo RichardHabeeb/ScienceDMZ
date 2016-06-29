@@ -4,6 +4,7 @@ import json
 
 
 class rest_sensor(object):
+
     def __init__(self):
         self.app = Flask(__name__)
         self.positive_callbacks = []
@@ -20,10 +21,7 @@ class rest_sensor(object):
 
             self.app.run(host='0.0.0.0')
 
-        t = threading.Thread(target=start)
-        t.start()
-
-
+        threading.Thread(target=start).start()
 
     def register_positive_callback(self, cb):
         self.positive_callbacks.append(cb)
@@ -31,13 +29,16 @@ class rest_sensor(object):
     def register_negative_callback(self, cb):
         self.negative_callbacks.append(cb)
 
-    def handle_put(self, list, req):
+    def handle_put(self, lst, req):
         if req.method == 'PUT':
+            print 1
             recieved_data = {
                 'nw_src': req.form['nw_src'],
                 'tp_src': req.form['tp_src'],
                 'nw_dst': req.form['nw_dst'],
                 'tp_dst': req.form['tp_dst'],
             }
-            for callback in list:
+            print 2
+            for callback in lst:
+                print 3
                 callback(received_data)

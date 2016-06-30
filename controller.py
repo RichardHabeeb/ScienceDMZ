@@ -43,7 +43,7 @@ class controller(app_manager.RyuApp):
         self.sensor.register_positive_callback(self.notify_good_flow)
 
     def notify_good_flow(self, flow_info):
-        self.logger.info("Good flow discovered.")
+        self.logger.info("Good flow discovered. %s", flow_info['nw_src'])
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")

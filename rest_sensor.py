@@ -32,9 +32,9 @@ class rest_sensor(object):
     def handle_put(self, lst, req):
         if req.method == 'PUT':
             recieved_data = {
-                'nw_src': req.form['nw_src']
-                'tp_src': req.form['tp_src']
-                'nw_dst': req.form['nw_dst']
+                'nw_src': req.form['nw_src'],
+                'tp_src': req.form['tp_src'],
+                'nw_dst': req.form['nw_dst'],
                 'tp_dst': req.form['tp_dst']
             }
             for callback in lst:

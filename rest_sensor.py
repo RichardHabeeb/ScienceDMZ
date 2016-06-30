@@ -1,4 +1,4 @@
-from flask import Flask, request
+from flask import Flask, request, make_response
 import threading
 import json
 
@@ -13,11 +13,11 @@ class rest_sensor(object):
         def start():
             @self.app.route("/detection/positive", methods=['PUT'])
             def positive():
-                self.handle_put(self.positive_callbacks, request)
+                return self.handle_put(self.positive_callbacks, request)
 
             @self.app.route("/detection/negative", methods=['PUT'])
             def negative():
-                self.handle_put(self.negative_callbacks, request)
+                return self.handle_put(self.negative_callbacks, request)
 
             self.app.run(host='0.0.0.0')
 
@@ -39,3 +39,4 @@ class rest_sensor(object):
             }
             for callback in lst:
                 callback(received_data)
+        return ('', 204)

@@ -90,7 +90,7 @@ class controller(app_manager.RyuApp):
             # This could be a security concern, if it becomes poisoned. -RTH 6/1
             self.mac_to_port[src_mac] = in_port
             actions.append(self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT))
-            #actions.append(self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT))
+            actions.append(self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT))
         elif dst_mac in self.mac_to_port:
             actions.append(self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[dst_mac]))
         else:
@@ -186,9 +186,9 @@ class controller(app_manager.RyuApp):
                     self.untrusted_flows[stat.cookie] = f
                     self.datapath.send_msg(f.get_flow_table_mod_msg(
                         self.datapath,
-                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
-                        #[self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT),
-                        #self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
+                        #[self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
+                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT),
+                        self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
                         self.datapath.ofproto.OFPFC_MODIFY))
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)

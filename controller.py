@@ -49,7 +49,7 @@ class controller(app_manager.RyuApp):
         self.logger.info("Bad flow discovered.")
         shell = flow(match=flow_info)
         for cookie, f in self.dmz_flows.iteritems():
-            if(shell.compare_l3(f)):
+            if(f.match['nw_src'] == flow_info['nw_src']):
                 self.logger.info("Bad flow identified.")
                 self.demote_flow(cookie)
 

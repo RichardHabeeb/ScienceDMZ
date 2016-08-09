@@ -49,7 +49,7 @@ class controller(app_manager.RyuApp):
         self.logger.info("Bad flow discovered.")
         shell = flow(match=flow_info)
         for cookie, f in self.dmz_flows.iteritems():
-            if(shell == f):
+            if(shell.compare_l3(f)):
                 self.logger.info("Bad flow identified.")
                 self.demote_flow(cookie)
 
@@ -166,7 +166,6 @@ class controller(app_manager.RyuApp):
                               ipv4_layer.dst, transport_layer.dst_port, nw_proto, actions)
             else:
                 self.unhandled_packets_received += 1
-
 
         data = None
         if msg.buffer_id == ofp.OFP_NO_BUFFER:

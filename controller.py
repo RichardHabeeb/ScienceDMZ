@@ -47,6 +47,12 @@ class controller(app_manager.RyuApp):
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")
+        shell = Flow(match=flow_info)
+        for cookie, f in self.dmz_flows.iteritems():
+            if(shell == f):
+                self.logger.info("Bad flow identified.")
+                self.demote_flow(cookie)
+
 
     def get_flow_statistics(self):
         threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()
@@ -97,6 +103,30 @@ class controller(app_manager.RyuApp):
             actions.append(self.datapath.ofproto_parser.OFPActionOutput(self.datapath.ofproto.OFPP_FLOOD))
             flood = True
         return actions, flood
+
+    def promote_flow(self, cookie):
+        f = self.untrusted_flows[cookie]
+        self.logger.info("Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
+        del self.untrusted_flows[cookie]
+        self.dmz_flows[cookie] = f
+        self.datapath.send_msg(f.get_flow_table_mod_msg(
+            self.datapath,
+            #[self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst])],
+            [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst]),
+            self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
+            self.datapath.ofproto.OFPFC_MODIFY))
+
+    def demote_flow(self, cookie):
+        f = self.dmz_flows[cookie]
+        self.logger.info("Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
+        del self.dmz_flows[cookie]
+        self.untrusted_flows[cookie] = f
+        self.datapath.send_msg(f.get_flow_table_mod_msg(
+            self.datapath,
+            #[self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
+            [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT),
+            self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
+            self.datapath.ofproto.OFPFC_MODIFY))
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -168,29 +198,13 @@ class controller(app_manager.RyuApp):
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
-                    del self.untrusted_flows[stat.cookie]
-                    self.dmz_flows[stat.cookie] = f
-                    self.datapath.send_msg(f.get_flow_table_mod_msg(
-                        self.datapath,
-                        #[self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst])],
-                        [self.datapath.ofproto_parser.OFPActionOutput(self.mac_to_port[f.dl_dst]),
-                        self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
-                        self.datapath.ofproto.OFPFC_MODIFY))
+                    self.promote_flow(stat.cookie)
 
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
                 if f.get_average_rate() < controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    self.logger.info("Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, stat.cookie, m['nw_src'], m['tp_src'], m['nw_dst'], m['tp_dst'])
-                    del self.dmz_flows[stat.cookie]
-                    self.untrusted_flows[stat.cookie] = f
-                    self.datapath.send_msg(f.get_flow_table_mod_msg(
-                        self.datapath,
-                        #[self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT)],
-                        [self.datapath.ofproto_parser.OFPActionOutput(controller.SECURITY_DEVICE_SWITCH_PORT),
-                        self.datapath.ofproto_parser.OFPActionOutput(controller.SENSOR_DEVICE_SWITCH_PORT)],
-                        self.datapath.ofproto.OFPFC_MODIFY))
+                    self.demote_flow(stat.cookie)
 
     @set_ev_cls(ofp_event.EventOFPFlowRemoved, MAIN_DISPATCHER)
     def _flow_removed_handler(self, ev):

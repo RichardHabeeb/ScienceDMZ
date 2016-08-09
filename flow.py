@@ -14,7 +14,7 @@ class flow(object):
         self.dl_dst = dl_dst
 
     def __eq__(self, other):
-        return self.match['nw_src'] == other.match['nw_src'] and self.match['nw_dst'] == other.match['nw_dst'] and self.match['tp_src'] == other.match['tp_src'] and self.match['tp_dst'] == other.match['tp_dst'] and self.match['in_port'] == other.match['in_port']
+        return self.match['nw_src'] == other.match['nw_src'] and self.match['nw_dst'] == other.match['nw_dst'] and self.match['tp_src'] == other.match['tp_src'] and self.match['tp_dst'] == other.match['tp_dst']
 
     def get_flow_table_mod_msg(self, datapath, actions, command):
         return datapath.ofproto_parser.OFPFlowMod(

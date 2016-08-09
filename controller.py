@@ -47,7 +47,7 @@ class controller(app_manager.RyuApp):
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")
-        shell = Flow(match=flow_info)
+        shell = flow(match=flow_info)
         for cookie, f in self.dmz_flows.iteritems():
             if(shell == f):
                 self.logger.info("Bad flow identified.")

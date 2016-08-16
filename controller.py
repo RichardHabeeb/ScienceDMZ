@@ -26,6 +26,7 @@ class controller(app_manager.RyuApp):
     SECURITY_DEVICE_SWITCH_PORT = 3
     SENSOR_DEVICE_SWITCH_PORT = 4
     THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
+    TRUSTED_FLOW_THRESHHOLD = 1
 
     def __init__(self, *args, **kwargs):
         super(controller, self).__init__(*args, **kwargs)
@@ -44,15 +45,31 @@ class controller(app_manager.RyuApp):
 
     def notify_good_flow(self, flow_info):
         self.logger.info("Good flow discovered. %s", flow_info['nw_src'])
+        matches = self.identify_flows_from_feedback(flow_info)
+        if matches:
+            self.logger.info("Good flow identified.")
+            for m in matches:
+                m[1].score += 1
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")
+        matches = self.identify_flows_from_feedback(flow_info)
+        if matches:
+            self.logger.info("Bad flow identified.")
+            for m in matches:
+                m[1].score -= 1
+                self.demote_flow(m[0])
+
+    def identify_flows_from_feedback(self, flow_info):
         shell = flow(match=flow_info)
+        ret = []
         for cookie, f in self.dmz_flows.items():
             if(f.compare_l3(shell)):
-                self.logger.info("Bad flow identified.")
-                self.demote_flow(cookie)
-
+                ret.append((cookie, f))
+        for cookie, f in self.untrusted_flows.items():
+            if(f.compare_l3(shell)):
+                ret.append((cookie, f))
+        return ret
 
     def get_flow_statistics(self):
         threading.Timer(flow.FLOW_STATS_INTERVAL_SECS, self.get_flow_statistics).start()
@@ -105,6 +122,8 @@ class controller(app_manager.RyuApp):
         return actions, flood
 
     def promote_flow(self, cookie):
+        if cookie not in untrusted_flows:
+            return
         f = self.untrusted_flows[cookie]
         self.logger.info("Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
         del self.untrusted_flows[cookie]
@@ -117,6 +136,8 @@ class controller(app_manager.RyuApp):
             self.datapath.ofproto.OFPFC_MODIFY))
 
     def demote_flow(self, cookie):
+        if cookie not in dmz_flows:
+            return
         f = self.dmz_flows[cookie]
         self.logger.info("Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
         del self.dmz_flows[cookie]
@@ -196,7 +217,7 @@ class controller(app_manager.RyuApp):
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
-                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port and f.score >= TRUSTED_FLOW_THRESHHOLD:
                     self.promote_flow(stat.cookie)
 
             elif stat.cookie in self.dmz_flows:

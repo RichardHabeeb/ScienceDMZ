@@ -122,7 +122,7 @@ class controller(app_manager.RyuApp):
         return actions, flood
 
     def promote_flow(self, cookie):
-        if cookie not in untrusted_flows:
+        if cookie not in self.untrusted_flows:
             return
         f = self.untrusted_flows[cookie]
         self.logger.info("Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
@@ -136,7 +136,7 @@ class controller(app_manager.RyuApp):
             self.datapath.ofproto.OFPFC_MODIFY))
 
     def demote_flow(self, cookie):
-        if cookie not in dmz_flows:
+        if cookie not in self.dmz_flows:
             return
         f = self.dmz_flows[cookie]
         self.logger.info("Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])

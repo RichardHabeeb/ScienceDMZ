@@ -26,7 +26,7 @@ class controller(app_manager.RyuApp):
     SECURITY_DEVICE_SWITCH_PORT = 3
     SENSOR_DEVICE_SWITCH_PORT = 4
     THRESHOLD_BITS_PER_SEC = 500 * 1024 * 1024
-    TRUSTED_FLOW_THRESHHOLD = 1
+    TRUSTED_FLOW_THRESHOLD = 1
 
     def __init__(self, *args, **kwargs):
         super(controller, self).__init__(*args, **kwargs)
@@ -217,7 +217,7 @@ class controller(app_manager.RyuApp):
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
-                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port and f.score >= TRUSTED_FLOW_THRESHHOLD:
+                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port and f.score >= controller.TRUSTED_FLOW_THRESHOLD:
                     self.promote_flow(stat.cookie)
 
             elif stat.cookie in self.dmz_flows:

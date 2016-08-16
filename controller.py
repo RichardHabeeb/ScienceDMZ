@@ -47,17 +47,17 @@ class controller(app_manager.RyuApp):
         self.logger.info("Good flow discovered. %s", flow_info['nw_src'])
         matches = self.identify_flows_from_feedback(flow_info)
         if matches:
-            self.logger.info("Good flow identified.")
             for m in matches:
+                self.logger.info("Good flow identified. Score: %i", m[1].score)
                 m[1].score += 1
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")
         matches = self.identify_flows_from_feedback(flow_info)
         if matches:
-            self.logger.info("Bad flow identified.")
             for m in matches:
-                m[1].score -= 1
+                self.logger.info("Bad flow identified. Score: %i", m[1].score)
+                m[1].score -= 100
                 self.demote_flow(m[0])
 
     def identify_flows_from_feedback(self, flow_info):

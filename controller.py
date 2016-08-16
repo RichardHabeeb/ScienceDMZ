@@ -217,8 +217,11 @@ class controller(app_manager.RyuApp):
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
-                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port and f.score >= controller.TRUSTED_FLOW_THRESHOLD:
-                    self.promote_flow(stat.cookie)
+                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
+                    if f.score >= controller.TRUSTED_FLOW_THRESHOLD:
+                        self.promote_flow(stat.cookie)
+                    else:
+                        self.logger.info("Blocked promotion because of score: %i", f.score)
 
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]

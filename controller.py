@@ -48,16 +48,17 @@ class controller(app_manager.RyuApp):
         matches = self.identify_flows_from_feedback(flow_info)
         if matches:
             for m in matches:
-                self.logger.info("Good flow identified. Score: %i", m[1].score)
                 m[1].score += 1
+                self.logger.info("Good flow identified. Score: %i", m[1].score)
+
 
     def notify_bad_flow(self, flow_info):
         self.logger.info("Bad flow discovered.")
         matches = self.identify_flows_from_feedback(flow_info)
         if matches:
             for m in matches:
-                self.logger.info("Bad flow identified. Score: %i", m[1].score)
                 m[1].score -= 100
+                self.logger.info("Bad flow identified. Score: %i", m[1].score)
                 self.demote_flow(m[0])
 
     def identify_flows_from_feedback(self, flow_info):
@@ -217,12 +218,8 @@ class controller(app_manager.RyuApp):
             if stat.cookie in self.untrusted_flows:
                 f = self.untrusted_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)
-                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port:
-                    if f.score >= controller.TRUSTED_FLOW_THRESHOLD:
-                        self.promote_flow(stat.cookie)
-                    else:
-                        self.logger.info("Blocked promotion because of score: %i", f.score)
-
+                if f.get_average_rate() >= controller.THRESHOLD_BITS_PER_SEC and f.dl_dst in self.mac_to_port and f.score >= controller.TRUSTED_FLOW_THRESHOLD:
+                    self.promote_flow(stat.cookie)
             elif stat.cookie in self.dmz_flows:
                 f = self.dmz_flows[stat.cookie]
                 f.update_total_bytes_transferred(stat.byte_count)

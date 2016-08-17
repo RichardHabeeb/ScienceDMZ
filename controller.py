@@ -4,7 +4,7 @@ An OpenFlow 1.0 Science DMZ Controller
 
 import threading
 import numpy
-fromd datetime import datetime
+from datetime import datetime
 from rest_sensor import rest_sensor
 from flow import flow
 from ryu.base import app_manager
@@ -49,7 +49,7 @@ class controller(app_manager.RyuApp):
         if matches:
             for m in matches:
                 m[1].score += 1
-                self.logger.info("[%] Good flow identified. %s Score: %i", str(datetime.now()) str(m[1]), m[1].score)
+                self.logger.info("[%s] Good flow identified. %s Score: %i", str(datetime.now()), str(m[1]), m[1].score)
 
 
     def notify_bad_flow(self, flow_info):
@@ -57,7 +57,7 @@ class controller(app_manager.RyuApp):
         if matches:
             for m in matches:
                 m[1].score -= 100
-                self.logger.info("[%] Bad flow identified. %s Score: %i", str(datetime.now()) str(m[1]), m[1].score)
+                self.logger.info("[%s] Bad flow identified. %s Score: %i", str(datetime.now()), str(m[1]), m[1].score)
                 self.demote_flow(m[0])
 
     def identify_flows_from_feedback(self, flow_info):
@@ -125,7 +125,7 @@ class controller(app_manager.RyuApp):
         if cookie not in self.untrusted_flows:
             return
         f = self.untrusted_flows[cookie]
-        self.logger.info("[%s] Promoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", str(datetime.now()), f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
+        self.logger.info("[%s] Promoting flow: %s", str(datetime.now()), str(f))
         del self.untrusted_flows[cookie]
         self.dmz_flows[cookie] = f
         self.datapath.send_msg(f.get_flow_table_mod_msg(
@@ -139,7 +139,7 @@ class controller(app_manager.RyuApp):
         if cookie not in self.dmz_flows:
             return
         f = self.dmz_flows[cookie]
-        self.logger.info("[%s] Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", str(datetime.now()) f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
+        self.logger.info("[%s] Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", str(datetime.now()), f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
         del self.dmz_flows[cookie]
         self.untrusted_flows[cookie] = f
         self.datapath.send_msg(f.get_flow_table_mod_msg(

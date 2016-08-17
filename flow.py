@@ -20,6 +20,9 @@ class flow(object):
     def compare_l3(self, other):
         return self.match['nw_src'] == other.match['nw_src'] and self.match['nw_dst'] == other.match['nw_dst'] and self.match['tp_src'] == other.match['tp_src'] and self.match['tp_dst'] == other.match['tp_dst']
 
+    def __str__(self):
+        return str(self.match)
+
     def get_flow_table_mod_msg(self, datapath, actions, command):
         return datapath.ofproto_parser.OFPFlowMod(
             datapath=datapath,

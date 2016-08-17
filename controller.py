@@ -49,7 +49,7 @@ class controller(app_manager.RyuApp):
         if matches:
             for m in matches:
                 m[1].score += 1
-                self.logger.info("[%s] Good flow identified. %s Score: %i", str(datetime.now()), str(m[1]), m[1].score)
+                self.logger.info("[%s] Good flow identified: %s", str(datetime.now()), str(m[1]))
 
 
     def notify_bad_flow(self, flow_info):
@@ -57,7 +57,7 @@ class controller(app_manager.RyuApp):
         if matches:
             for m in matches:
                 m[1].score -= 100
-                self.logger.info("[%s] Bad flow identified. %s Score: %i", str(datetime.now()), str(m[1]), m[1].score)
+                self.logger.info("[%s] Bad flow identified: %s", str(datetime.now()), str(m[1]))
                 self.demote_flow(m[0])
 
     def identify_flows_from_feedback(self, flow_info):
@@ -139,7 +139,7 @@ class controller(app_manager.RyuApp):
         if cookie not in self.dmz_flows:
             return
         f = self.dmz_flows[cookie]
-        self.logger.info("[%s] Demoting flow: rate=%i Mbps, cookie=%i, src=%s:%s, dst=%s:%s", str(datetime.now()), f.get_average_rate()/1000/1000, cookie, f.match['nw_src'], f.match['tp_src'], f.match['nw_dst'], f.match['tp_dst'])
+        self.logger.info("[%s] Demoting flow: %s", str(datetime.now()), str(f))
         del self.dmz_flows[cookie]
         self.untrusted_flows[cookie] = f
         self.datapath.send_msg(f.get_flow_table_mod_msg(
